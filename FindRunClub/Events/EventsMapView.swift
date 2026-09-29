@@ -18,57 +18,53 @@ struct EventsMapView: View {
     @State private var position: MapCameraPosition = .automatic
     @State private var locationPermission = LocationPermission()
 
+    /// Pins stand up from their coordinate, so leave room above the highest one.
+    private var pinAllowance: CGFloat { 64 }
+
     var body: some View {
-        GeometryReader { proxy in
-            Map(position: $position) {
-                UserAnnotation()
-                ForEach(clusters) { cluster in
-                    Annotation(cluster.accessibilityTitle, coordinate: cluster.coordinate.locationCoordinate, anchor: .bottom) {
-                        TimePinStack(runs: cluster.runs, selectedRunID: selectedRunID, onTap: onTapRun)
-                    }
-                    .annotationTitles(.hidden)
+        Map(position: $position) {
+            UserAnnotation()
+            ForEach(clusters) { cluster in
+                Annotation(cluster.accessibilityTitle, coordinate: cluster.coordinate.locationCoordinate, anchor: .bottom) {
+                    TimePinStack(runs: cluster.runs, selectedRunID: selectedRunID, onTap: onTapRun)
                 }
+                .annotationTitles(.hidden)
             }
-            .mapStyle(.standard(emphasis: .muted, pointsOfInterest: .excludingAll))
-            // Keep the "you are here" dot Apple-Maps blue so it can't be mistaken for a pin.
-            .tint(.blue)
-            // Lifts Apple's logo and legal link above the sheet so they stay visible.
-            .safeAreaPadding(.bottom, bottomInset)
-            .overlay(alignment: .bottomTrailing) {
-                IconButton(systemImage: "scope", label: "Center on my location", circular: true) {
-                    locationPermission.requestIfNeeded()
-                    withAnimation(.easeInOut(duration: 0.45)) {
-                        position = .userLocation(fallback: position)
-                    }
-                }
-                .padding(.trailing, 16)
-                .padding(.bottom, bottomInset + 16)
-            }
-            .onAppear {
+        }
+        .mapStyle(.standard(emphasis: .muted, pointsOfInterest: .excludingAll))
+        // Keep the "you are here" dot Apple-Maps blue so it can't be mistaken for a pin.
+        .tint(.blue)
+        // The map frames its camera inside its safe area, so padding it by the
+        // controls and the sheet fits the pins into the visible band. It also
+        // lifts Apple's logo and legal link above the sheet.
+        .safeAreaPadding(.top, topInset + pinAllowance)
+        .safeAreaPadding(.bottom, bottomInset)
+        .overlay(alignment: .bottomTrailing) {
+            IconButton(systemImage: "scope", label: "Center on my location", circular: true) {
                 locationPermission.requestIfNeeded()
-                frame(in: proxy.size, animated: false)
+                withAnimation(.easeInOut(duration: 0.45)) {
+                    position = .userLocation(fallback: position)
+                }
             }
-            .onChange(of: framingKey) {
-                frame(in: proxy.size, animated: true)
-            }
+            .padding(.trailing, 16)
+            .padding(.bottom, bottomInset + 16)
+        }
+        .onAppear {
+            locationPermission.requestIfNeeded()
+            frameClusters(animated: false)
+        }
+        .onChange(of: framingKey) {
+            frameClusters(animated: true)
         }
     }
 
-    /// Fits the pins into the band of map left visible between the controls
-    /// and the sheet. Leaves the camera alone when there's nothing to show.
-    private func frame(in size: CGSize, animated: Bool) {
-        guard let bounds = CoordinateBounds(clusters.map(\.coordinate)), size.height > 0 else { return }
-        // Pins stand up from their coordinate, so leave room above the highest one.
-        let pinAllowance: CGFloat = 64
-        let bandTop = topInset + pinAllowance
-        let bandHeight = max(size.height - bandTop - bottomInset, size.height * 0.2)
+    /// Fits the day's pins; leaves the camera alone when there's nothing to show.
+    private func frameClusters(animated: Bool) {
+        guard let bounds = CoordinateBounds(clusters.map(\.coordinate)) else { return }
         let span = bounds.paddedSpan(padding: 1.3, minimumSpan: 0.012)
-        let latitudeDelta = span.latitudeDelta * Double(size.height / bandHeight)
-        let bandMiddle = bandTop + bandHeight / 2
-        let shift = Double((size.height / 2 - bandMiddle) / size.height) * latitudeDelta
         let region = MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: bounds.center.latitude - shift, longitude: bounds.center.longitude),
-            span: MKCoordinateSpan(latitudeDelta: latitudeDelta, longitudeDelta: span.longitudeDelta)
+            center: bounds.center.locationCoordinate,
+            span: MKCoordinateSpan(latitudeDelta: span.latitudeDelta, longitudeDelta: span.longitudeDelta)
         )
         if animated {
             withAnimation(.easeInOut(duration: 0.45)) { position = .region(region) }
