@@ -74,6 +74,7 @@ jobs:
 
       - name: Commit screenshots
         run: |
+          rm -rf docs/screenshots
           mkdir -p docs/screenshots
           cp screenshots/readme/*.jpg docs/screenshots/
           git config user.name "github-actions[bot]"

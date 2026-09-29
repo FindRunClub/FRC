@@ -61,9 +61,9 @@ final class ScheduleTests: XCTestCase {
         XCTAssertEqual(wednesday.map(\.start), [date("2026-09-30T10:00:00Z")])
         XCTAssertEqual(schedule.allOccurrences.count, 5)
 
-        let filtered = tuesday.filter(EventFilter(runsOnly: true).includes)
-        XCTAssertEqual(filtered.map(\.event.id.rawValue), ["nyc", "nyc", "la"])
-        XCTAssertTrue(tuesday.filter(EventFilter(runsOnly: false, hiddenClubIDs: [club.id]).includes).isEmpty)
+        let runs = ClubRun.group(tuesday)
+        XCTAssertEqual(runs.filter { RunFilter(runsOnly: true).includes($0) }.map(\.primary.event.id.rawValue), ["nyc", "nyc", "la"])
+        XCTAssertTrue(runs.filter { RunFilter(runsOnly: false, hiddenClubIDs: [club.id]).includes($0) }.isEmpty)
     }
 
     func testTimeZoneNoteOnlyForOtherTimeZones() {
@@ -88,11 +88,11 @@ final class ScheduleTests: XCTestCase {
             event("nowhere", zone: newYork, at: ["2026-09-29T23:30:00Z"]),
         ]
         let occurrences = WeekSchedule(events: events, now: now, timeZone: newYork).occurrences(on: LocalDay(year: 2026, month: 9, day: 29))
-        let clusters = LocationCluster.clusters(for: occurrences)
+        let clusters = LocationCluster.clusters(for: ClubRun.group(occurrences))
 
-        XCTAssertEqual(clusters.count, 2, "Occurrences without coordinates are left off the map")
-        let pierCluster = try? XCTUnwrap(clusters.first { $0.occurrences.count == 2 })
-        XCTAssertEqual(pierCluster?.occurrences.map(\.event.id.rawValue), ["morning", "evening"])
+        XCTAssertEqual(clusters.count, 2, "Runs without coordinates are left off the map")
+        let pierCluster = clusters.first { $0.runs.count == 2 }
+        XCTAssertEqual(pierCluster?.runs.map(\.primary.event.id.rawValue), ["morning", "evening"])
     }
 
     func testLocalDayArithmetic() {
@@ -131,34 +131,45 @@ final class ScheduleTests: XCTestCase {
     }
 
     func testDemoDataFillsEveryDayOfTheWeek() async throws {
-        // Tuesday 00:30 in New York, so all of Tuesday's demo runs are still ahead.
-        let reference = date("2026-09-29T04:30:00Z")
+        // Tuesday 00:30 in Nashville, so all of Tuesday's demo runs are still ahead.
+        let reference = date("2026-09-29T05:30:00Z")
+        let nashville = TimeZone(identifier: "America/Chicago")!
         let source = DemoClubEventsDataSource(now: { reference }, latencySeconds: 0)
         let snapshot = try await source.loadClubEvents()
-        XCTAssertEqual(snapshot.clubs.count, 8)
+        XCTAssertEqual(snapshot.clubs.count, 13)
 
-        let schedule = WeekSchedule(events: snapshot.events, now: reference, timeZone: newYork)
-        let runsOnly = EventFilter(runsOnly: true)
-        for day in schedule.days {
-            let runs = schedule.occurrences(on: day).filter(runsOnly.includes)
-            XCTAssertFalse(runs.isEmpty, "Expected demo runs on \(day)")
+        let schedule = WeekSchedule(events: snapshot.events, now: reference, timeZone: nashville)
+        let runsOnly = RunFilter(runsOnly: true)
+        for weekday in Weekday.allCases {
+            let day = try XCTUnwrap(schedule.day(for: weekday))
+            let runs = ClubRun.group(schedule.occurrences(on: day), turnout: snapshot.turnout).filter { runsOnly.includes($0) }
+            XCTAssertFalse(runs.isEmpty, "Expected demo runs on \(weekday.name)")
         }
 
-        // Saturday at Chelsea Piers stacks the club long run with a bike ride.
-        let saturday = schedule.occurrences(on: LocalDay(year: 2026, month: 10, day: 3))
-        XCTAssertTrue(saturday.contains { !$0.event.isRun })
-        XCTAssertTrue(LocationCluster.clusters(for: saturday).contains { $0.occurrences.count == 2 })
+        // Tuesday matches the wireframe: four clubs, and Five Points offers two routes.
+        let tuesday = ClubRun.group(schedule.occurrences(on: try XCTUnwrap(schedule.day(for: .tuesday))), turnout: snapshot.turnout)
+        XCTAssertEqual(tuesday.map(\.club.name), ["Shelby Bottoms Trail Crew", "Music Row Movers", "Five Points Run Club", "Gulch Striders"])
+        let fivePoints = try XCTUnwrap(tuesday.first { $0.club.name == "Five Points Run Club" })
+        XCTAssertEqual(fivePoints.options.map { $0.event.route?.optionLabel }, ["5 mi loop", "3 mi loop"])
+        XCTAssertEqual(fivePoints.turnout?.average, 75)
+        XCTAssertEqual(fivePoints.timeParts.time, "6:00")
+        XCTAssertEqual(fivePoints.timeParts.period, "PM")
+        XCTAssertEqual(fivePoints.place.area, "Five Points")
 
-        let sunset5K = try XCTUnwrap(snapshot.events.first { $0.event.id.rawValue == "demo-102" })
-        XCTAssertTrue(sunset5K.event.joined)
-        let routeID = try XCTUnwrap(sunset5K.event.route?.id)
+        // Saturday's bike ride is hidden by "Runs only".
+        let saturday = ClubRun.group(schedule.occurrences(on: try XCTUnwrap(schedule.day(for: .saturday))))
+        XCTAssertEqual(saturday.count, 3)
+        XCTAssertEqual(saturday.filter { runsOnly.includes($0) }.count, 2)
+
+        let routeID = try XCTUnwrap(fivePoints.primary.event.route?.id)
         let route = try await source.routeDetails(id: routeID)
-        XCTAssertEqual(route.distance ?? 0, 5_000, accuracy: 500)
-        XCTAssertGreaterThan(route.coordinates.count, 5)
+        XCTAssertEqual(route.distance ?? 0, 5 * 1_609.344, accuracy: 1)
+        XCTAssertEqual(route.coordinates.pathLength, 5 * 1_609.344, accuracy: 80, "The drawn loop matches its stated distance")
+        XCTAssertTrue(route.isLoop)
 
-        let attendees = try await source.attendees(eventID: sunset5K.event.id)
-        XCTAssertEqual(attendees.count, 38)
-        let admins = try await source.clubAdmins(clubID: sunset5K.club.id)
-        XCTAssertFalse(admins.isEmpty)
+        let attendees = try await source.attendees(eventID: fivePoints.primary.event.id)
+        XCTAssertEqual(attendees.count, 84)
+        let admins = try await source.clubAdmins(clubID: fivePoints.club.id)
+        XCTAssertEqual(admins.count, 2)
     }
 }

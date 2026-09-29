@@ -60,3 +60,23 @@ public struct CoordinateBounds: Hashable, Sendable {
         )
     }
 }
+
+extension Coordinate {
+    /// Great-circle distance in meters.
+    public func distance(to other: Coordinate) -> Double {
+        let earthRadius = 6_371_000.0
+        let lat1 = latitude * .pi / 180
+        let lat2 = other.latitude * .pi / 180
+        let deltaLat = (other.latitude - latitude) * .pi / 180
+        let deltaLng = (other.longitude - longitude) * .pi / 180
+        let h = sin(deltaLat / 2) * sin(deltaLat / 2) + cos(lat1) * cos(lat2) * sin(deltaLng / 2) * sin(deltaLng / 2)
+        return 2 * earthRadius * atan2(sqrt(h), sqrt(1 - h))
+    }
+}
+
+extension Array where Element == Coordinate {
+    /// Length of the path through these points, in meters.
+    public var pathLength: Double {
+        zip(self, dropFirst()).reduce(0.0) { $0 + $1.0.distance(to: $1.1) }
+    }
+}

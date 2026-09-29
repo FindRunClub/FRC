@@ -3,118 +3,146 @@ import FRCKit
 import MapKit
 import SwiftUI
 
-/// Apple Maps (MapKit): free, no API key. Each pin is just the start time;
-/// tapping a time opens that run's details.
+/// The full-bleed map. Each pin is a time button; the selected run turns
+/// accent and shows its club name, like the MapView wireframe.
 struct EventsMapView: View {
     let clusters: [LocationCluster]
-    let selectedDay: LocalDay
-    let onSelect: (EventOccurrence) -> Void
+    let selectedRunID: String?
+    /// Changes whenever the set of runs changes, to re-frame the camera.
+    let framingKey: String
+    /// Space covered by the controls above and the sheet below, in points.
+    let topInset: CGFloat
+    let bottomInset: CGFloat
+    let onTapRun: (ClubRun) -> Void
 
     @State private var position: MapCameraPosition = .automatic
     @State private var locationPermission = LocationPermission()
 
     var body: some View {
-        Map(position: $position) {
-            UserAnnotation()
-            ForEach(clusters) { cluster in
-                Annotation(cluster.accessibilityTitle, coordinate: cluster.coordinate.locationCoordinate, anchor: .bottom) {
-                    TimePin(cluster: cluster, onSelect: onSelect)
+        GeometryReader { proxy in
+            Map(position: $position) {
+                UserAnnotation()
+                ForEach(clusters) { cluster in
+                    Annotation(cluster.accessibilityTitle, coordinate: cluster.coordinate.locationCoordinate, anchor: .bottom) {
+                        TimePinStack(runs: cluster.runs, selectedRunID: selectedRunID, onTap: onTapRun)
+                    }
+                    .annotationTitles(.hidden)
                 }
-                .annotationTitles(.hidden)
+            }
+            .mapStyle(.standard(emphasis: .muted, pointsOfInterest: .excludingAll))
+            // Keep the "you are here" dot Apple-Maps blue so it can't be mistaken for a pin.
+            .tint(.blue)
+            .overlay(alignment: .bottomTrailing) {
+                IconButton(systemImage: "scope", label: "Center on my location", circular: true) {
+                    locationPermission.requestIfNeeded()
+                    withAnimation(.easeInOut(duration: 0.45)) {
+                        position = .userLocation(fallback: position)
+                    }
+                }
+                .padding(.trailing, 16)
+                .padding(.bottom, bottomInset + 16)
+            }
+            .onAppear {
+                locationPermission.requestIfNeeded()
+                frame(in: proxy.size, animated: false)
+            }
+            .onChange(of: framingKey) {
+                frame(in: proxy.size, animated: true)
             }
         }
-        .mapStyle(.standard(pointsOfInterest: .excludingAll))
-        // Keep the "you are here" dot Apple-Maps blue so it isn't mistaken for an orange event pin.
-        .tint(.blue)
-        .mapControls {
-            MapUserLocationButton()
-            MapCompass()
-            MapScaleView()
-        }
-        .onAppear {
-            locationPermission.requestIfNeeded()
-            frameClusters(animated: false)
-        }
-        .onChange(of: framingKey) {
-            frameClusters(animated: true)
-        }
     }
 
-    /// Changes whenever the day or its set of pins changes.
-    private var framingKey: String {
-        ([selectedDay.id] + clusters.map(\.id)).joined(separator: "|")
-    }
-
-    /// Zooms to fit the day's pins; leaves the camera alone on empty days.
-    private func frameClusters(animated: Bool) {
-        guard let bounds = CoordinateBounds(clusters.map(\.coordinate)) else { return }
-        let span = bounds.paddedSpan(padding: 1.6, minimumSpan: 0.02)
+    /// Fits the pins into the band of map left visible between the controls
+    /// and the sheet. Leaves the camera alone when there's nothing to show.
+    private func frame(in size: CGSize, animated: Bool) {
+        guard let bounds = CoordinateBounds(clusters.map(\.coordinate)), size.height > 0 else { return }
+        // Pins stand up from their coordinate, so leave room above the highest one.
+        let pinAllowance: CGFloat = 64
+        let bandTop = topInset + pinAllowance
+        let bandHeight = max(size.height - bandTop - bottomInset, size.height * 0.2)
+        let span = bounds.paddedSpan(padding: 1.3, minimumSpan: 0.012)
+        let latitudeDelta = span.latitudeDelta * Double(size.height / bandHeight)
+        let bandMiddle = bandTop + bandHeight / 2
+        let shift = Double((size.height / 2 - bandMiddle) / size.height) * latitudeDelta
         let region = MKCoordinateRegion(
-            center: bounds.center.locationCoordinate,
-            span: MKCoordinateSpan(latitudeDelta: span.latitudeDelta, longitudeDelta: span.longitudeDelta)
+            center: CLLocationCoordinate2D(latitude: bounds.center.latitude - shift, longitude: bounds.center.longitude),
+            span: MKCoordinateSpan(latitudeDelta: latitudeDelta, longitudeDelta: span.longitudeDelta)
         )
         if animated {
-            withAnimation(.easeInOut(duration: 0.45)) {
-                position = .region(region)
-            }
+            withAnimation(.easeInOut(duration: 0.45)) { position = .region(region) }
         } else {
             position = .region(region)
         }
     }
 }
 
-/// One or more time buttons stacked over a start location.
-struct TimePin: View {
-    let cluster: LocationCluster
-    let onSelect: (EventOccurrence) -> Void
+/// Time buttons for every run leaving from one spot.
+struct TimePinStack: View {
+    let runs: [ClubRun]
+    let selectedRunID: String?
+    let onTap: (ClubRun) -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            VStack(spacing: 4) {
-                ForEach(cluster.occurrences) { occurrence in
-                    Button {
-                        onSelect(occurrence)
-                    } label: {
-                        HStack(spacing: 4) {
-                            if occurrence.event.joined {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.caption.weight(.bold))
-                            }
-                            Text(occurrence.timeText)
-                                .font(.subheadline.weight(.bold))
-                                .monospacedDigit()
-                                .lineLimit(1)
-                                .fixedSize()
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(occurrence.event.isRun ? Theme.stravaOrange : Theme.otherActivity))
-                        .overlay(Capsule().strokeBorder(.white, lineWidth: 2))
-                        .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(occurrence.timeText), \(occurrence.event.title), \(occurrence.club.name)")
-                    .accessibilityHint("Shows event details")
-                }
+        VStack(spacing: 4) {
+            if let selected = runs.first(where: { $0.id == selectedRunID }) {
+                Text(selected.club.name)
+                    .font(FRCFont.body(12, .semibold))
+                    .foregroundStyle(Theme.ground)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Theme.ink, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
             }
-            .padding(cluster.occurrences.count > 1 ? 4 : 0)
-            .background {
-                if cluster.occurrences.count > 1 {
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .fill(.thinMaterial)
+            ForEach(runs) { run in
+                Button {
+                    onTap(run)
+                } label: {
+                    TimePill(run: run, isSelected: run.id == selectedRunID)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(run.club.name), \(run.timeParts.time) \(run.timeParts.period)")
+                .accessibilityHint(run.id == selectedRunID ? "Opens the club page" : "Selects this club")
             }
-
-            PinPointer()
-                .fill(cluster.occurrences.first?.event.isRun == false ? Theme.otherActivity : Theme.stravaOrange)
-                .frame(width: 14, height: 8)
+            PinTail()
+                .fill(Theme.ink)
+                .frame(width: 12, height: 7)
+                .padding(.top, -4)
         }
-        .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
+        .shadow(color: .black.opacity(0.18), radius: 3, y: 2)
     }
 }
 
-private struct PinPointer: Shape {
+private struct TimePill: View {
+    let run: ClubRun
+    let isSelected: Bool
+
+    var body: some View {
+        let isRun = run.options.contains { $0.event.isRun }
+        let parts = run.timeParts
+        HStack(spacing: 3) {
+            if run.options.contains(where: { $0.event.joined }) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 10, weight: .heavy))
+            }
+            Text("\(parts.time) \(parts.period)")
+                .font(FRCFont.mono(isSelected ? 14 : 12, .semibold))
+                .lineLimit(1)
+                .fixedSize()
+        }
+        .foregroundStyle(isSelected ? Theme.onAccent : Theme.ground)
+        .padding(.horizontal, isSelected ? 12 : 9)
+        .frame(height: isSelected ? 34 : 28)
+        .background(Capsule().fill(isSelected ? Theme.accent : (isRun ? Theme.ink : Theme.mid)))
+        .overlay(Capsule().strokeBorder(isSelected ? Theme.ink : Theme.surface, lineWidth: isSelected ? 1.5 : 2))
+        // Grow the tap target toward 44pt without changing the drawn size.
+        .padding(.vertical, isSelected ? 5 : 8)
+        .contentShape(Rectangle())
+        .padding(.vertical, isSelected ? -5 : -8)
+    }
+}
+
+private struct PinTail: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
         path.move(to: CGPoint(x: rect.minX, y: rect.minY))
@@ -127,7 +155,7 @@ private struct PinPointer: Shape {
 
 extension LocationCluster {
     var accessibilityTitle: String {
-        occurrences.map { "\($0.club.name) at \($0.timeText)" }.joined(separator: ", ")
+        runs.map { "\($0.club.name) at \($0.timeParts.time) \($0.timeParts.period)" }.joined(separator: ", ")
     }
 }
 

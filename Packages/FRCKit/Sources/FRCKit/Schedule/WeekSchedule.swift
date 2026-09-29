@@ -44,54 +44,43 @@ public struct WeekSchedule: Sendable {
         occurrencesByDay[day] ?? []
     }
 
+    /// The date in this week that falls on `weekday`.
+    public func day(for weekday: Weekday) -> LocalDay? {
+        days.first { $0.weekday == weekday.rawValue }
+    }
+
     public var allOccurrences: [EventOccurrence] {
         days.flatMap { occurrences(on: $0) }
     }
 }
 
-/// What the user has chosen to see.
-public struct EventFilter: Hashable, Sendable, Codable {
-    public var runsOnly: Bool
-    public var hiddenClubIDs: Set<Int>
-
-    public init(runsOnly: Bool = true, hiddenClubIDs: Set<Int> = []) {
-        self.runsOnly = runsOnly
-        self.hiddenClubIDs = hiddenClubIDs
-    }
-
-    public func includes(_ occurrence: EventOccurrence) -> Bool {
-        if runsOnly && !occurrence.event.isRun { return false }
-        return !hiddenClubIDs.contains(occurrence.club.id)
-    }
-
-    public var isNarrowing: Bool {
-        runsOnly || !hiddenClubIDs.isEmpty
-    }
-}
-
-/// Occurrences that share a start location on the map, so pins don't stack
-/// on top of each other when two runs leave from the same spot.
+/// Runs that share a start location on the map, so pins don't stack on
+/// top of each other when two clubs leave from the same spot.
 public struct LocationCluster: Identifiable, Hashable, Sendable {
     public let id: String
     public let coordinate: Coordinate
-    public let occurrences: [EventOccurrence]
+    public let runs: [ClubRun]
 
-    /// Groups occurrences whose start points round to the same ~11 m cell.
-    /// Occurrences without coordinates are skipped (they still appear in the list).
-    public static func clusters(for occurrences: [EventOccurrence]) -> [LocationCluster] {
+    /// Groups runs whose start points round to the same ~11 m cell.
+    /// Runs without coordinates are skipped (they still appear in the list).
+    public static func clusters(for runs: [ClubRun]) -> [LocationCluster] {
         var order: [String] = []
-        var groups: [String: [EventOccurrence]] = [:]
-        for occurrence in occurrences {
-            guard let coordinate = occurrence.event.startCoordinate else { continue }
-            let key = "\(Int((coordinate.latitude * 1e4).rounded())),\(Int((coordinate.longitude * 1e4).rounded()))"
-            if groups[key] == nil { order.append(key) }
-            groups[key, default: []].append(occurrence)
+        var groups: [String: [ClubRun]] = [:]
+        for run in runs {
+            guard let coordinate = run.coordinate else { continue }
+            let cell = key(for: coordinate)
+            if groups[cell] == nil { order.append(cell) }
+            groups[cell, default: []].append(run)
         }
         return order.compactMap { key in
-            guard let group = groups[key]?.sorted(by: EventOccurrence.chronological),
-                  let coordinate = group.first?.event.startCoordinate
+            guard let group = groups[key]?.sorted(by: { $0.start < $1.start }),
+                  let coordinate = group.first?.coordinate
             else { return nil }
-            return LocationCluster(id: key, coordinate: coordinate, occurrences: group)
+            return LocationCluster(id: key, coordinate: coordinate, runs: group)
         }
+    }
+
+    static func key(for coordinate: Coordinate) -> String {
+        "\(Int((coordinate.latitude * 1e4).rounded())),\(Int((coordinate.longitude * 1e4).rounded()))"
     }
 }

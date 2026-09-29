@@ -6,12 +6,21 @@ public struct ClubEventsSnapshot: Sendable {
     public var events: [ClubEvent]
     /// Clubs whose events couldn't be loaded (shown as a warning, not a failure).
     public var failures: [ClubLoadFailure]
+    /// Weekly turnout by event, where the source knows it (Strava doesn't expose it).
+    public var turnout: [StravaID: TurnoutHistory]
     public var loadedAt: Date
 
-    public init(clubs: [StravaClub], events: [ClubEvent], failures: [ClubLoadFailure] = [], loadedAt: Date = Date()) {
+    public init(
+        clubs: [StravaClub],
+        events: [ClubEvent],
+        failures: [ClubLoadFailure] = [],
+        turnout: [StravaID: TurnoutHistory] = [:],
+        loadedAt: Date = Date()
+    ) {
         self.clubs = clubs
         self.events = events
         self.failures = failures
+        self.turnout = turnout
         self.loadedAt = loadedAt
     }
 }

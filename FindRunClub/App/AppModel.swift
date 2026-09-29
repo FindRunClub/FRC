@@ -8,6 +8,7 @@ import Observation
 final class AppModel {
     let auth: StravaAuthController
     let events = EventsStore()
+    let savedClubs = SavedClubs()
     private(set) var forceDemoData: Bool
 
     private static let forceDemoDataKey = "forceDemoData"

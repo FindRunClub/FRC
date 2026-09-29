@@ -72,6 +72,31 @@ public struct StravaRoute: Hashable, Sendable, Decodable {
         return []
     }
 
+    /// Strava's distance when known; otherwise measured along the map line.
+    /// Events only embed the line, so this lets lists filter by distance
+    /// without fetching every route (summary lines run a little short).
+    public var estimatedDistance: Double? {
+        if let distance, distance > 0 { return distance }
+        let path = coordinates
+        return path.count > 1 ? path.pathLength : nil
+    }
+
+    /// Starts and ends within ~250 m of each other.
+    public var isLoop: Bool {
+        let path = coordinates
+        guard let first = path.first, let last = path.last, path.count > 2 else { return false }
+        return first.distance(to: last) < 250
+    }
+
+    /// "5 mi loop", "3.1 mi", or the route's name when the distance is unknown.
+    public var optionLabel: String {
+        guard let meters = estimatedDistance else { return name ?? "Route" }
+        let miles = meters / 1_609.344
+        let rounded = (miles * 10).rounded() / 10
+        let number = rounded == rounded.rounded() ? String(Int(rounded)) : String(format: "%.1f", rounded)
+        return "\(number) mi" + (isLoop ? " loop" : "")
+    }
+
     /// Fills in fields missing here from `other` (used to merge the embedded
     /// summary with the full route fetched later).
     public func merged(with other: StravaRoute) -> StravaRoute {

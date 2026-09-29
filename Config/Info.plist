@@ -6,5 +6,17 @@
 	<string>$(STRAVA_CLIENT_ID)</string>
 	<key>StravaClientSecret</key>
 	<string>$(STRAVA_CLIENT_SECRET)</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Archivo-BlackItalic.ttf</string>
+		<string>Archivo-SemiExpandedExtraBold.ttf</string>
+		<string>Geist-Bold.ttf</string>
+		<string>Geist-Medium.ttf</string>
+		<string>Geist-Regular.ttf</string>
+		<string>Geist-SemiBold.ttf</string>
+		<string>GeistMono-Medium.ttf</string>
+		<string>GeistMono-Regular.ttf</string>
+		<string>GeistMono-SemiBold.ttf</string>
+	</array>
 </dict>
 </plist>

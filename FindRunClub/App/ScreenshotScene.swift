@@ -3,20 +3,21 @@ import Foundation
 
 /// Debug-only hooks that let `scripts/capture-screenshots.sh` (run in CI)
 /// open a specific screen via launch arguments, e.g.
-/// `-FRCScreenshotScene list -FRCScreenshotWeekday 5`.
+/// `-FRCScreenshotScene filters -FRCScreenshotWeekday 3`.
 struct ScreenshotScene {
     enum Screen: String {
         case map
-        case list
+        case expanded
+        case filters
         case detail
-        case detailLarge = "detail-large"
+        case detailBottom = "detail-bottom"
         case account
     }
 
     let screen: Screen
-    /// 1 = Sunday … 7 = Saturday; nil keeps today selected.
+    /// Gregorian weekday (1 = Sunday … 7 = Saturday); nil keeps today.
     let weekday: Int?
-    /// Turns off "Runs only" and club filters before the screenshot.
+    /// Turns off "Runs only" and other filters before the screenshot.
     let showEverything: Bool
 
     static let current: ScreenshotScene? = {
