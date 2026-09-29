@@ -38,6 +38,16 @@ jobs:
       - name: Launch in Simulator and capture screenshots
         run: scripts/capture-screenshots.sh build/DerivedData/Build/Products/Debug-iphonesimulator/FindRunClub.app screenshots
 
+      - name: Print screenshot previews (temporary)
+        run: |
+          mkdir -p previews
+          for name in 01-map-today 02-map-saturday 03-list-thursday 04-detail-thursday 05-detail-full-thursday 07-map-saturday-all-activities; do
+            sips -Z 700 -s format jpeg -s formatOptions 45 "screenshots/$name.png" --out "previews/$name.jpg" >/dev/null
+            echo "=== BEGIN $name ==="
+            base64 -b 76 -i "previews/$name.jpg"
+            echo "=== END $name ==="
+          done
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v6
