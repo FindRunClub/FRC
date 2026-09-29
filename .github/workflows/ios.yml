@@ -4,6 +4,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      update_readme_screenshots:
+        description: Commit fresh screenshots to docs/screenshots (shown in the README)
+        type: boolean
+        default: false
 
 concurrency:
   group: ios-${{ github.ref }}
@@ -36,16 +41,12 @@ jobs:
             CODE_SIGNING_ALLOWED=NO
 
       - name: Launch in Simulator and capture screenshots
-        run: scripts/capture-screenshots.sh build/DerivedData/Build/Products/Debug-iphonesimulator/FindRunClub.app screenshots
-
-      - name: Print screenshot previews (temporary)
         run: |
-          mkdir -p previews
-          for name in 01-map-today 02-map-saturday 03-list-thursday 04-detail-thursday 05-detail-full-thursday 07-map-saturday-all-activities; do
-            sips -Z 700 -s format jpeg -s formatOptions 45 "screenshots/$name.png" --out "previews/$name.jpg" >/dev/null
-            echo "=== BEGIN $name ==="
-            base64 -b 76 -i "previews/$name.jpg"
-            echo "=== END $name ==="
+          scripts/capture-screenshots.sh build/DerivedData/Build/Products/Debug-iphonesimulator/FindRunClub.app screenshots
+          # Smaller JPEG copies for the README.
+          mkdir -p screenshots/readme
+          for f in screenshots/*.png; do
+            sips -Z 1000 -s format jpeg -s formatOptions 70 "$f" --out "screenshots/readme/$(basename "${f%.png}").jpg" >/dev/null
           done
 
       - name: Upload screenshots
@@ -55,3 +56,32 @@ jobs:
           name: screenshots
           path: screenshots/
           if-no-files-found: ignore
+
+  update-readme-screenshots:
+    name: Commit README screenshots
+    if: github.event_name == 'workflow_dispatch' && inputs.update_readme_screenshots
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: screenshots
+          path: screenshots
+
+      - name: Commit screenshots
+        run: |
+          mkdir -p docs/screenshots
+          cp screenshots/readme/*.jpg docs/screenshots/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots
+          if git diff --cached --quiet; then
+            echo "Screenshots unchanged."
+            exit 0
+          fi
+          git commit -m "Update README screenshots"
+          git push
