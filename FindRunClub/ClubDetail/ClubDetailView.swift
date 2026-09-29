@@ -42,6 +42,14 @@ struct ClubDetailView: View {
                     }
                 }
                 .ignoresSafeArea(edges: .top)
+                .overlay(alignment: .top) {
+                    // Keeps the status bar readable over the map and scrolled content.
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .frame(height: geometry.safeAreaInsets.top)
+                        .ignoresSafeArea(edges: .top)
+                        .allowsHitTesting(false)
+                }
                 .background(Theme.ground)
                 .toolbar(.hidden, for: .navigationBar)
                 .task { await model.load() }
@@ -94,7 +102,9 @@ struct ClubDetailView: View {
                 .padding(4)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous).strokeBorder(Theme.line, lineWidth: 1))
-                .padding(16)
+                .padding(.horizontal, 16)
+                // Sits above Apple's map attribution, which must stay visible.
+                .padding(.bottom, 36)
             }
         }
         .overlay(alignment: .top) {
@@ -421,9 +431,9 @@ private struct AvatarStack: View {
     private let maxShown = 8
 
     var body: some View {
-        HStack(spacing: -8) {
+        HStack(spacing: -4) {
             ForEach(Array(athletes.prefix(maxShown).enumerated()), id: \.offset) { _, athlete in
-                AvatarView(athlete: athlete, size: 30)
+                AvatarView(athlete: athlete, size: 32)
                     .overlay(Circle().stroke(Theme.surface, lineWidth: 2))
             }
             if athletes.count > maxShown {

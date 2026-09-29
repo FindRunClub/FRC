@@ -83,8 +83,9 @@ Developer Program membership.
 ## QA checklist (sample data)
 
 - [ ] Launch: today's chip is selected and dotted; the sheet shows "Sample data".
-- [ ] **Tue**: four clubs, matching the wireframe (Shelby Bottoms 6:00 AM, Music Row
-      5:30 PM, Five Points 6:00 PM, Gulch 6:30 PM). **Evening** shows three.
+- [ ] **Tue**: the wireframe's four clubs (Shelby Bottoms 6:00 AM, Music Row 5:30 PM,
+      Five Points 6:00 PM, Gulch 6:30 PM). On the current day, a run drops off an hour
+      after it starts, since the strip shows the next seven days. **Evening** shows three.
 - [ ] Tap a pin: it turns lime with the club name, and its card is outlined and scrolled
       into view. Tap it again to open the club page.
 - [ ] **Five Points Run Club**: the route switch flips between the 5 mi and 3 mi loops;

@@ -32,6 +32,8 @@ struct EventsMapView: View {
             .mapStyle(.standard(emphasis: .muted, pointsOfInterest: .excludingAll))
             // Keep the "you are here" dot Apple-Maps blue so it can't be mistaken for a pin.
             .tint(.blue)
+            // Lifts Apple's logo and legal link above the sheet so they stay visible.
+            .safeAreaPadding(.bottom, bottomInset)
             .overlay(alignment: .bottomTrailing) {
                 IconButton(systemImage: "scope", label: "Center on my location", circular: true) {
                     locationPermission.requestIfNeeded()

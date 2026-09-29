@@ -31,9 +31,9 @@ struct MapScreen: View {
                     EventsMapView(
                         clusters: LocationCluster.clusters(for: runs),
                         selectedRunID: selectedID,
-                        framingKey: runs.map(\.id).joined(separator: "|"),
+                        framingKey: runs.map(\.id).joined(separator: "|") + (isSheetExpanded ? "#expanded" : ""),
                         topInset: safeTop + controlsHeight,
-                        bottomInset: collapsedSheetHeight + safeBottom,
+                        bottomInset: sheetHeight + safeBottom,
                         onTapRun: { run in
                             if run.id == selectedID {
                                 path.append(run)
