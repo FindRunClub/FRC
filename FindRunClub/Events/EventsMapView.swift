@@ -20,10 +20,10 @@ struct EventsMapView: View {
                 Annotation(cluster.accessibilityTitle, coordinate: cluster.coordinate.locationCoordinate, anchor: .bottom) {
                     TimePin(cluster: cluster, onSelect: onSelect)
                 }
+                .annotationTitles(.hidden)
             }
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
-        .annotationTitles(.hidden)
         .mapControls {
             MapUserLocationButton()
             MapCompass()

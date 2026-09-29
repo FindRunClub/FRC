@@ -327,9 +327,9 @@ private struct RoutePreviewMap: View {
                         .frame(width: 14, height: 14)
                         .overlay(Circle().stroke(.white, lineWidth: 2))
                 }
+                .annotationTitles(.hidden)
             }
         }
         .mapStyle(.standard(emphasis: .muted, pointsOfInterest: .excludingAll))
-        .annotationTitles(.hidden)
     }
 }
