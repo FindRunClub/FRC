@@ -15,7 +15,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Toolchain versions
         run: |
@@ -32,4 +32,16 @@ jobs:
             -scheme FindRunClub \
             -configuration Debug \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO
+
+      - name: Launch in Simulator and capture screenshots
+        run: scripts/capture-screenshots.sh build/DerivedData/Build/Products/Debug-iphonesimulator/FindRunClub.app screenshots
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: screenshots
+          path: screenshots/
+          if-no-files-found: ignore

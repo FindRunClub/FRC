@@ -13,7 +13,11 @@ struct EventsHomeView: View {
     @Environment(AppModel.self) private var model
     @State private var displayMode: DisplayMode = .map
     @State private var selectedOccurrence: EventOccurrence?
+    @State private var detailDetent: PresentationDetent = .medium
     @State private var isShowingAccount = false
+    #if DEBUG
+    @State private var didApplyScreenshotScene = false
+    #endif
 
     var body: some View {
         let store = model.events
@@ -42,14 +46,14 @@ struct EventsHomeView: View {
                         EventsMapView(
                             clusters: store.selectedClusters,
                             selectedDay: store.selectedDay,
-                            onSelect: { selectedOccurrence = $0 }
+                            onSelect: { showDetails(for: $0) }
                         )
                     case .list:
                         EventsListView(
                             day: store.selectedDay,
                             occurrences: store.selectedOccurrences,
                             failures: store.failures,
-                            onSelect: { selectedOccurrence = $0 },
+                            onSelect: { showDetails(for: $0) },
                             onRefresh: { await store.load() }
                         )
                     }
@@ -84,14 +88,49 @@ struct EventsHomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $selectedOccurrence) { occurrence in
                 EventDetailView(occurrence: occurrence, dataSource: store.dataSource)
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.medium, .large], selection: $detailDetent)
                     .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $isShowingAccount) {
                 AccountView()
             }
+            #if DEBUG
+            .onChange(of: store.phase) {
+                applyScreenshotScene(store)
+            }
+            #endif
         }
     }
+
+    private func showDetails(for occurrence: EventOccurrence) {
+        detailDetent = .medium
+        selectedOccurrence = occurrence
+    }
+
+    #if DEBUG
+    /// Opens the screen requested by CI's screenshot script, once data has loaded.
+    private func applyScreenshotScene(_ store: EventsStore) {
+        guard let scene = ScreenshotScene.current, store.phase == .loaded, !didApplyScreenshotScene else { return }
+        didApplyScreenshotScene = true
+        if scene.showEverything {
+            store.showEverything()
+        }
+        if let weekday = scene.weekday, let day = store.schedule.days.first(where: { $0.weekday == weekday }) {
+            store.selectedDay = day
+        }
+        switch scene.screen {
+        case .map:
+            break
+        case .list:
+            displayMode = .list
+        case .detail, .detailLarge:
+            detailDetent = scene.screen == .detailLarge ? .large : .medium
+            selectedOccurrence = store.selectedOccurrences.first { $0.event.route != nil } ?? store.selectedOccurrences.first
+        case .account:
+            isShowingAccount = true
+        }
+    }
+    #endif
 
     @ViewBuilder
     private func statusOverlay(store: EventsStore) -> some View {

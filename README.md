@@ -85,6 +85,7 @@ Packages/FRCKit/             Swift package with no UI code, unit-tested
   Schedule/                  Next-7-days schedule, filters, same-spot pin clustering
   DataSources/               Live Strava source + demo source behind one protocol
 Config/                      Build settings, Info.plist, Secrets.example.xcconfig
+scripts/                     capture-screenshots.sh (used by CI)
 ```
 
 **Strava endpoints used**
@@ -102,7 +103,9 @@ Strava's default limits are 200 requests / 15 min and 2,000 / day (reads: 100 / 
 
 **Tests:** `swift test --package-path Packages/FRCKit` (or ⌘U in Xcode). The decoding
 tests use a real `group_events` response captured in March 2026. GitHub Actions
-(`.github/workflows/ios.yml`) runs the tests and builds the app on every push.
+(`.github/workflows/ios.yml`) runs the tests, builds the app, launches it in an iPhone
+simulator, and uploads screenshots of each screen as the run's `screenshots` artifact
+(`scripts/capture-screenshots.sh` does the same on a Mac).
 
 ## Known limitations and open questions
 
