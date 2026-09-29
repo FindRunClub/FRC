@@ -1,0 +1,15 @@
+// Build settings for the FindRunClub app target.
+//
+// Your own values (Strava keys, signing team) go in Config/Secrets.xcconfig,
+// which is git-ignored. Copy Config/Secrets.example.xcconfig to get started.
+// Anything set there overrides the defaults below.
+
+PRODUCT_BUNDLE_IDENTIFIER = com.findrunclub.app
+DEVELOPMENT_TEAM =
+
+// Strava API application credentials (https://www.strava.com/settings/api).
+// Left empty, the app runs on built-in demo data.
+STRAVA_CLIENT_ID =
+STRAVA_CLIENT_SECRET =
+
+#include? "Secrets.xcconfig"

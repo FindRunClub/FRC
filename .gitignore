@@ -1,0 +1,15 @@
+# Strava keys and personal signing settings: never commit these (this repo is public).
+Config/Secrets.xcconfig
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# macOS
+.DS_Store
