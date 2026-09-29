@@ -7,6 +7,13 @@ Tap a time to see the host, club admins, how many people are going, and the rout
 > Status: first draft for QA. It runs without any setup on built-in **demo data**
 > (fictional NYC run clubs). Connect Strava to see your own clubs' events.
 
+| Map (today) | Two runs, one spot | List | Event details |
+| --- | --- | --- | --- |
+| <img src="docs/screenshots/01-map-today.jpg" width="200"> | <img src="docs/screenshots/07-map-saturday-all-activities.jpg" width="200"> | <img src="docs/screenshots/03-list-thursday.jpg" width="200"> | <img src="docs/screenshots/05-detail-full-thursday.jpg" width="200"> |
+
+*Demo data, captured in the iOS Simulator by CI. To refresh: Actions → iOS → Run workflow →
+"update_readme_screenshots".*
+
 ## What's in the draft
 
 | Feature | Where |

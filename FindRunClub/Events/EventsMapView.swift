@@ -24,6 +24,8 @@ struct EventsMapView: View {
             }
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        // Keep the "you are here" dot Apple-Maps blue so it isn't mistaken for an orange event pin.
+        .tint(.blue)
         .mapControls {
             MapUserLocationButton()
             MapCompass()
