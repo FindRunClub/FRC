@@ -30,6 +30,11 @@ public struct StravaAPIClient: Sendable {
         return page.elements
     }
 
+    /// `GET /clubs/{id}`: one club's details, used when adding a club by link.
+    public func club(_ link: StravaClubLink) async throws -> StravaClub {
+        try await get("clubs/\(link.pathComponent)")
+    }
+
     /// `GET /clubs/{id}/group_events`: upcoming events for a club.
     /// Not in Strava's published reference, but used by current third-party apps.
     public func upcomingGroupEvents(clubID: Int) async throws -> [StravaGroupEvent] {

@@ -139,6 +139,8 @@ public struct RunFilter: Hashable, Sendable, Codable {
     public var distance: DistanceBucket
     /// Hide rides and other non-run club events.
     public var runsOnly: Bool
+    /// Only clubs the athlete has joined on Strava.
+    public var myClubsOnly: Bool
     public var hiddenClubIDs: Set<Int>
 
     public static let fullDay = 0...(24 * 60)
@@ -150,6 +152,7 @@ public struct RunFilter: Hashable, Sendable, Codable {
         latestMinute: Int = 24 * 60,
         distance: DistanceBucket = .any,
         runsOnly: Bool = true,
+        myClubsOnly: Bool = false,
         hiddenClubIDs: Set<Int> = []
     ) {
         self.days = days
@@ -158,6 +161,7 @@ public struct RunFilter: Hashable, Sendable, Codable {
         self.latestMinute = latestMinute
         self.distance = distance
         self.runsOnly = runsOnly
+        self.myClubsOnly = myClubsOnly
         self.hiddenClubIDs = hiddenClubIDs
     }
 
@@ -169,6 +173,7 @@ public struct RunFilter: Hashable, Sendable, Codable {
     /// which dates are loaded) and free-text search.
     public func includes(_ run: ClubRun, search: String = "") -> Bool {
         if runsOnly && !run.options.contains(where: { $0.event.isRun }) { return false }
+        if myClubsOnly && !run.club.isMember { return false }
         if hiddenClubIDs.contains(run.club.id) { return false }
         let minute = run.minuteOfDay
         if !timeSlot.contains(minuteOfDay: minute) { return false }

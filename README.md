@@ -7,7 +7,8 @@ host, club admins, who's going, and weekly turnout.
 
 > Status: draft for QA, built to the FRC design handoff (Volt palette, Stride logo,
 > Archivo / Geist). It runs without any setup on **sample data** (the handoff's
-> fictional Nashville clubs). Connect Strava to see your own clubs' events.
+> fictional Nashville clubs). Connect Strava to see live events from your clubs and
+> every other club listed for your area.
 
 | Map | Filters | Club page | Club page, continued |
 | --- | --- | --- | --- |
@@ -20,14 +21,65 @@ host, club admins, who's going, and weekly turnout.
 
 | Screen | What it does |
 | --- | --- |
-| **Map** | FRC mark (opens Account), "Neighborhood or club" search, Filters button with a dot when filters are on. **Mon–Sun chips** (today is dotted) and an **Any / Early / Midday / Evening** segment. Pins show start times; the selected one turns lime and shows the club name. A bottom sheet lists the matching clubs (time, neighborhood, distance, avg runners); drag or tap its header to expand. |
-| **Filters** | Pick one or more days, time of day, a start-time window, distance (under 3 / 3–6 / 6+ mi), runs only, and which clubs to show. The button counts matches live ("Show 4 clubs"); ✕ discards changes. |
-| **Club page** | Route map (ink casing, lime line, Start marker) with a **route switch** when a club offers two distances, schedule tag ("Weekly · Tuesdays"), meeting point, distance / elevation / avg runners, **8-week turnout** bars, **host, club admins, who's going this week**, pace and terrain, **Get directions** (Google Maps or Apple Maps), **View on Strava**, save and share. |
-| **Account** | Connect or disconnect Strava; switch back to sample data for testing. |
+| **Map** | FRC mark (opens Account), "Neighborhood or club" search, Filters button with a dot when filters are on. **Mon–Sun chips** (today is dotted) and an **Any / Early / Midday / Evening** segment. A day chip always means its **next** date: on a Wednesday, *Tue* shows next Tuesday, never yesterday. Pins show start times; the selected one turns lime and shows the club name. A bottom sheet lists the matching clubs (time, neighborhood, distance, avg runners); drag or tap its header to expand. |
+| **Filters** | Pick one or more days, time of day, a start-time window, distance (under 3 / 3–6 / 6+ mi), runs only, **my clubs only**, and which clubs to show (clubs you've joined are marked). The button counts matches live ("Show 4 clubs"); ✕ discards changes. |
+| **Club page** | Route map (ink casing, lime line, Start marker) with a **route switch** when a club offers two distances, schedule tag ("Weekly · Tuesdays") with the next date, whether you've joined the club (with **Join on Strava** if not), meeting point, distance / elevation / avg runners, **8-week turnout** bars, **host, club admins, who's going this week**, pace and terrain, **Get directions** (Google Maps or Apple Maps), **View on Strava**, save and share. |
+| **Account** | Connect or disconnect Strava; **Clubs in your area** (the area's club list, plus any club you add by pasting its Strava link); switch back to sample data for testing. |
 
 Behind the scenes: Strava sign-in (OAuth, tokens in the Keychain, auto-refresh), one
-request per club on launch, and details (admins, attendees, full route) fetched only
-when a club page opens.
+request per club on launch (yours plus the area's), and details (admins, attendees,
+full route) fetched only when a club page opens.
+
+### Upcoming days only
+
+Strava only returns upcoming events, so the app looks ahead from today through the
+same weekday next week (8 days). Picking a day chip shows that weekday's **next**
+date. On a Wednesday, *Tue* is next Tuesday. On a Tuesday, *Tue* shows today's
+runs that haven't finished, then next Tuesday's for the ones that already happened.
+Each run appears once. The sheet header and cards show the date ("Tue, Oct 6")
+whenever it isn't today.
+
+### Every club in the area, not just yours
+
+Strava's API has **no way to search clubs by location**, and it only lists the clubs
+the signed-in athlete has joined. To show every club in an area, FRC loads three sets
+of clubs and merges them:
+
+1. **Your clubs** (`/athlete/clubs`), marked "Joined".
+2. **The area directory:** `FindRunClub/Resources/ClubDirectory.json`, a curated list
+   of club IDs per city. The app ships with this copy and, on launch, refreshes it from
+   the hosted copy (`CLUB_DIRECTORY_URL` in `Config/FindRunClub.xcconfig`, which
+   points at this file on `main`). So once the app is on `main`, adding a club to the
+   JSON reaches everyone without an app update.
+3. **Clubs you add:** Account → *Clubs in your area* → paste a link such as
+   `https://www.strava.com/clubs/123456` (or the club's vanity link). They're saved
+   on the device.
+
+Events load for any **public** club, joined or not. Private clubs only show events to
+members, so the app says so instead of failing. *My clubs only* in Filters narrows the
+map back to your own clubs.
+
+To add clubs to the directory, add entries to the area's `clubs` array (the name,
+city and state are just labels; the `id` is the number in the club's Strava link):
+
+```json
+{
+  "areas": [
+    {
+      "id": "nashville",
+      "name": "Nashville",
+      "latitude": 36.1627,
+      "longitude": -86.7816,
+      "clubs": [
+        { "id": 123456, "name": "Example Run Club", "city": "Nashville", "state": "TN" }
+      ]
+    }
+  ]
+}
+```
+
+Add more areas the same way. The app uses the one the runner picks in Account (the
+first area by default).
 
 ### How the build maps to the design handoff
 
@@ -71,7 +123,9 @@ yourself on the map.
 3. Run the app, tap the **FRC mark** (top-left), then **Connect with Strava**.
 
 The app asks only for Strava's `read` scope, and shows events from clubs **the
-signed-in athlete belongs to**.
+signed-in athlete belongs to** plus the area's clubs (see
+[Every club in the area](#every-club-in-the-area-not-just-yours)). The directory ships
+empty, so until clubs are added to it, you'll see your own clubs and any you add by link.
 
 ### Run on a physical iPhone
 
@@ -84,8 +138,11 @@ Developer Program membership.
 
 - [ ] Launch: today's chip is selected and dotted; the sheet shows "Sample data".
 - [ ] **Tue**: the wireframe's four clubs (Shelby Bottoms 6:00 AM, Music Row 5:30 PM,
-      Five Points 6:00 PM, Gulch 6:30 PM). On the current day, a run drops off an hour
-      after it starts, since the strip shows the next seven days. **Evening** shows three.
+      Five Points 6:00 PM, Gulch 6:30 PM). **Evening** shows three.
+- [ ] Upcoming days: pick a day earlier in the week than today (e.g. *Tue* on a
+      Wednesday). The header reads "Tue, Oct 6"-style (next week's date) and cards show
+      the date. On today's chip, a run that finished over an hour ago moves to next
+      week's date instead of disappearing.
 - [ ] Tap a pin: it turns lime with the club name, and its card is outlined and scrolled
       into view. Tap it again to open the club page.
 - [ ] **Five Points Run Club**: the route switch flips between the 5 mi and 3 mi loops;
@@ -97,9 +154,16 @@ Developer Program membership.
       (grey pin).
 - [ ] Filters: pick Tue + Thu, Evening, 3–6 mi; the button count matches the sheet after
       tapping it. ✕ discards changes; Reset clears them.
+- [ ] Filters → *My clubs only*: only Five Points, Germantown Milers, 12South and
+      Centennial Sunrise remain (the sample clubs marked "Joined").
+- [ ] Club page: a club you haven't joined says so, with *Join on Strava*; a joined club
+      says "You're a member of this club".
 - [ ] Search "gulch" on Tuesday (or "Germantown" on Wednesday) narrows the list to that club.
 - [ ] Get directions offers Google Maps and Apple Maps; share and save work.
 - [ ] With keys: Connect with Strava, approve, and your clubs' events load.
+- [ ] With keys: Account → *Clubs in your area* → paste a public club's Strava link and
+      tap **Add**. Its runs appear on the map without joining it; ✕ removes it.
+- [ ] With keys: pull down on the list to refresh.
 - [ ] Disconnect Strava: the app returns to sample data.
 
 ## How it works
@@ -111,14 +175,15 @@ FindRunClub/                 SwiftUI app (iOS 17+)
   Events/                    Map screen, time pins, bottom sheet, EventsStore, saved clubs
   Filters/                   Filters screen
   ClubDetail/                Club page + lazy loading of admins/attendees/route
-  Account/                   Connect/disconnect Strava, sample-data toggle
+  Account/                   Connect/disconnect Strava, area clubs, sample-data toggle
+  Resources/ClubDirectory.json  Curated clubs per area (refreshed from the hosted copy)
   Shared/Theme.swift         Volt tokens, fonts, Stride logo, buttons, chips, cards
   Resources/Fonts/           Archivo, Geist, Geist Mono (SIL Open Font License)
 Packages/FRCKit/             Swift package with no UI code, unit-tested
   Models/                    Strava club, event, athlete, route (lenient decoding)
   Strava/                    API client, OAuth, token session (refresh + Keychain hook)
-  Schedule/                  7-day schedule, ClubRun grouping, RunFilter, turnout metrics
-  DataSources/               Live Strava source + sample Nashville source behind one protocol
+  Schedule/                  8-day schedule, ClubRun grouping, RunFilter, turnout metrics
+  DataSources/               Live Strava source, club directory, sample Nashville source
 Config/                      Build settings, Info.plist, Secrets.example.xcconfig
 scripts/                     capture-screenshots.sh (used by CI)
 ```
@@ -128,13 +193,15 @@ scripts/                     capture-screenshots.sh (used by CI)
 | Call | When | Cost |
 | --- | --- | --- |
 | `GET /athlete/clubs` | launch / refresh | 1 request |
-| `GET /clubs/{id}/group_events?upcoming=true` | launch / refresh | 1 per club |
+| `GET /clubs/{id}/group_events?upcoming=true` | launch / refresh | 1 per club (yours + the area's) |
+| `GET /clubs/{id or vanity}` | adding a club by link | 1 |
 | `GET /clubs/{id}/admins` | opening a club page (cached per club) | 1 |
 | `GET /group_events/{id}/athletes` | opening a club page | 1+ per route option |
 | `GET /routes/{id}` | opening a club page with a route (cached) | 1 per route option |
 
 Strava's default limits are 200 requests / 15 min and 2,000 / day (reads: 100 / 15 min,
-1,000 / day), so details load only when a club page opens. List distances come from
+1,000 / day), and they apply to **the whole app, across all users**, not per user. So
+details load only when a club page opens. List distances come from
 measuring the route line each event already includes, so filtering by distance costs no
 extra requests.
 
@@ -153,14 +220,19 @@ simulator, and uploads screenshots of each screen as the run's `screenshots` art
 - **Club events aren't in Strava's published API reference.** `GET /clubs/{id}/group_events`
   still works (other apps use it in 2026), but Strava could change it without notice.
   Decoding is deliberately forgiving so one odd field doesn't break the list.
-- **Only the signed-in athlete's clubs.** Strava exposes events for clubs you've joined.
-  A "discover every run club in my city" map, and the Marketer product, need another
-  source: clubs connecting their own Strava accounts to an FRC backend, clubs submitting
-  events directly, or a Strava partnership.
+- **Finding the area's clubs is manual.** Strava has no club search by location, so the
+  area directory is a curated list; it ships empty until real club links are added.
+  Private clubs only show events to their members.
+- **Rate limits at scale.** Every launch costs one request per club for every user,
+  against one app-wide budget. 50 clubs × 20 users = 1,000 requests, a full day's read
+  quota. Beyond a handful of testers, an FRC backend should fetch each club's events
+  once every few minutes and serve them to all users, which also removes the
+  per-user sign-in requirement for browsing.
 - **Neighborhood names** come from the event's free-text address, so they're only as
   good as what organizers typed.
 - **Recurring events:** Strava's list often includes only the *next* date of a recurring
-  event. That covers a 7-day view, which is why the app looks one week ahead.
+  event. That covers the next occurrence of every weekday, which is why the app looks
+  one week ahead.
 - **Client secret in the app:** fine for a draft; for the App Store, move the token
   exchange to a small backend so the secret isn't shipped in the binary.
 - **Strava app review:** new Strava API apps allow only a small number of connected

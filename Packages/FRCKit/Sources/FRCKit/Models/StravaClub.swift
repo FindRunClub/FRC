@@ -13,6 +13,9 @@ public struct StravaClub: Identifiable, Hashable, Sendable, Decodable {
     /// Vanity slug for strava.com/clubs/<slug>.
     public let urlSlug: String?
     public let isPrivate: Bool
+    /// Whether the signed-in athlete belongs to the club. Clubs from the
+    /// area directory usually aren't joined; the athlete's own clubs are.
+    public var isMember: Bool
 
     public init(
         id: Int,
@@ -24,7 +27,8 @@ public struct StravaClub: Identifiable, Hashable, Sendable, Decodable {
         country: String? = nil,
         memberCount: Int? = nil,
         urlSlug: String? = nil,
-        isPrivate: Bool = false
+        isPrivate: Bool = false,
+        isMember: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -36,6 +40,7 @@ public struct StravaClub: Identifiable, Hashable, Sendable, Decodable {
         self.memberCount = memberCount
         self.urlSlug = urlSlug
         self.isPrivate = isPrivate
+        self.isMember = isMember
     }
 
     enum CodingKeys: String, CodingKey {
@@ -50,6 +55,7 @@ public struct StravaClub: Identifiable, Hashable, Sendable, Decodable {
         case memberCount = "member_count"
         case url
         case isPrivate = "private"
+        case membership
     }
 
     public init(from decoder: Decoder) throws {
@@ -64,6 +70,7 @@ public struct StravaClub: Identifiable, Hashable, Sendable, Decodable {
         memberCount = container.lenient(Int.self, forKey: .memberCount)
         urlSlug = container.lenient(String.self, forKey: .url)
         isPrivate = container.lenient(Bool.self, forKey: .isPrivate) ?? false
+        isMember = container.lenient(String.self, forKey: .membership) == "member"
     }
 
     public var stravaURL: URL {

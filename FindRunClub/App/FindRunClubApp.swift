@@ -27,6 +27,10 @@ struct RootView: View {
             .task(id: model.dataSourceKey) {
                 await model.activateDataSource()
             }
+            .task {
+                // Picks up clubs added to the hosted directory since this build.
+                await model.directory.refresh()
+            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
                     model.events.rollOverToTodayIfNeeded()

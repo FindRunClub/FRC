@@ -1,22 +1,35 @@
 import Foundation
 
-/// Live data: the signed-in athlete's clubs and their upcoming group events.
+/// Live data: upcoming group events from the signed-in athlete's clubs plus
+/// every club in the area directory, whether or not the athlete has joined.
 ///
 /// Cost per full load is 1 + (number of clubs) requests. Admins, attendees
-/// and route details are fetched only when an event is opened.
+/// and route details are fetched only when a club page opens.
 public final class StravaClubEventsDataSource: ClubEventsDataSource {
     private let client: StravaAPIClient
+    private let directoryClubs: [StravaClub]
     private let maxConcurrentClubRequests: Int
     private let adminsCache = MemoCache<Int, [StravaAthlete]>()
     private let routeCache = MemoCache<StravaID, StravaRoute>()
 
-    public init(client: StravaAPIClient, maxConcurrentClubRequests: Int = 4) {
+    public init(client: StravaAPIClient, directoryClubs: [StravaClub] = [], maxConcurrentClubRequests: Int = 4) {
         self.client = client
+        self.directoryClubs = directoryClubs
         self.maxConcurrentClubRequests = max(maxConcurrentClubRequests, 1)
     }
 
     public func loadClubEvents() async throws -> ClubEventsSnapshot {
-        let clubs = try await client.athleteClubs()
+        var clubs = try await client.athleteClubs().map { club -> StravaClub in
+            var member = club
+            member.isMember = true
+            return member
+        }
+        var seen = Set(clubs.map(\.id))
+        for club in directoryClubs where seen.insert(club.id).inserted {
+            var other = club
+            other.isMember = false
+            clubs.append(other)
+        }
         let results = await fetchEvents(for: clubs)
 
         var events: [ClubEvent] = []
@@ -28,7 +41,11 @@ public final class StravaClubEventsDataSource: ClubEventsDataSource {
                 events += clubEvents.map { ClubEvent(event: $0, club: club) }
             case .failure(let error):
                 errors.append(error)
-                failures.append(ClubLoadFailure(club: club, message: error.localizedDescription))
+                let apiError = error as? StravaAPIError
+                let message = !club.isMember && (apiError == .forbidden || apiError == .notFound)
+                    ? "Strava only shows this club's events to its members."
+                    : error.localizedDescription
+                failures.append(ClubLoadFailure(club: club, message: message))
             }
         }
 
@@ -36,7 +53,13 @@ public final class StravaClubEventsDataSource: ClubEventsDataSource {
         if let authError = errors.first(where: { ($0 as? StravaAPIError) == .unauthorized || ($0 as? StravaAPIError) == .notSignedIn }) {
             throw authError
         }
-        if !clubs.isEmpty, failures.count == clubs.count, let firstError = errors.first {
+        // Nothing loaded at all is an error, unless every failure is just a
+        // members-only club from the directory.
+        let membersOnly = zip(failures, errors).filter { failure, error in
+            let apiError = error as? StravaAPIError
+            return !failure.club.isMember && (apiError == .forbidden || apiError == .notFound)
+        }.count
+        if !clubs.isEmpty, failures.count == clubs.count, membersOnly < failures.count, let firstError = errors.first {
             throw firstError
         }
 

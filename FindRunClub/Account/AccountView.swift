@@ -4,6 +4,9 @@ import SwiftUI
 struct AccountView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @State private var clubLink = ""
+    @State private var isAddingClub = false
+    @State private var addClubMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -19,6 +22,7 @@ struct AccountView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     stravaCard
+                    areaClubsCard
                     sampleDataCard
                     aboutCard
                 }
@@ -72,6 +76,102 @@ struct AccountView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+        }
+    }
+
+    /// Every club in the area, not just the runner's own: the curated list
+    /// for the city plus clubs added by link.
+    private var areaClubsCard: some View {
+        let directory = model.directory
+        return Card(padding: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    SectionTitle("Clubs in your area")
+                    Spacer()
+                    if directory.directory.areas.count > 1 {
+                        Menu(directory.area?.name ?? "Area") {
+                            ForEach(directory.directory.areas) { area in
+                                Button(area.name) { directory.selectArea(area.id) }
+                            }
+                        }
+                        .font(FRCFont.body(14, .semibold))
+                    } else if let area = directory.area {
+                        Text(area.name).font(FRCFont.body(14)).foregroundStyle(Theme.muted)
+                    }
+                }
+                BodyText("FRC shows runs from every club listed for your area, not only the ones you've joined. Strava can't search clubs by location, so the list is curated. Add any public club by pasting its Strava link.")
+                HStack {
+                    Text("Listed for this area").foregroundStyle(Theme.muted)
+                    Spacer()
+                    Text("\(directory.listedClubs.count)").font(FRCFont.mono(14)).foregroundStyle(Theme.ink)
+                }
+                .font(FRCFont.body(15))
+
+                HStack(spacing: 8) {
+                    TextField("strava.com/clubs/123456", text: $clubLink)
+                        .font(FRCFont.body(15))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.URL)
+                        .padding(.horizontal, 12)
+                        .frame(height: 44)
+                        .background(Theme.ground, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+                    Button {
+                        Task { await addClub() }
+                    } label: {
+                        if isAddingClub {
+                            ProgressView().tint(Theme.ground)
+                        } else {
+                            Text("Add")
+                        }
+                    }
+                    .buttonStyle(FRCButtonStyle(kind: .primary, height: 44))
+                    .frame(width: 76)
+                    .disabled(clubLink.trimmingCharacters(in: .whitespaces).isEmpty || isAddingClub)
+                }
+                if let addClubMessage {
+                    Text(addClubMessage)
+                        .font(FRCFont.body(13, .medium))
+                        .foregroundStyle(Theme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if !model.auth.isSignedIn {
+                    BodyText("Connect Strava to add clubs and see their events. The map shows sample clubs until then.")
+                }
+
+                ForEach(directory.addedClubs) { entry in
+                    Divider().overlay(Theme.line)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(entry.name).font(FRCFont.body(15, .medium)).foregroundStyle(Theme.ink)
+                            Text("Added by you").font(FRCFont.body(12)).foregroundStyle(Theme.muted)
+                        }
+                        Spacer()
+                        Button {
+                            directory.remove(entry.id)
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Theme.mid)
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Remove \(entry.name)")
+                    }
+                }
+            }
+        }
+    }
+
+    private func addClub() async {
+        isAddingClub = true
+        defer { isAddingClub = false }
+        do {
+            let club = try await model.addClub(from: clubLink)
+            clubLink = ""
+            addClubMessage = "Added \(club.name). Its runs will show on the map."
+        } catch {
+            addClubMessage = error.localizedDescription
         }
     }
 

@@ -44,9 +44,21 @@ public struct WeekSchedule: Sendable {
         occurrencesByDay[day] ?? []
     }
 
-    /// The date in this week that falls on `weekday`.
+    /// The first date in the window that falls on `weekday`.
     public func day(for weekday: Weekday) -> LocalDay? {
         days.first { $0.weekday == weekday.rawValue }
+    }
+
+    /// Each event's next upcoming run on `weekday`. Past runs are never shown:
+    /// on Wednesday, Tuesday means next Tuesday; on a Tuesday evening, a club's
+    /// morning run that already happened shows next week's date instead.
+    /// Needs a window of at least 8 days to reach next week's same weekday.
+    public func upcomingOccurrences(on weekday: Weekday) -> [EventOccurrence] {
+        var seenEvents = Set<StravaID>()
+        return days
+            .filter { $0.weekday == weekday.rawValue }
+            .flatMap { occurrences(on: $0) }
+            .filter { seenEvents.insert($0.event.id).inserted }
     }
 
     public var allOccurrences: [EventOccurrence] {

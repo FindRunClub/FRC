@@ -1,0 +1,11 @@
+{
+  "areas": [
+    {
+      "id": "nashville",
+      "name": "Nashville, TN",
+      "latitude": 36.1627,
+      "longitude": -86.7816,
+      "clubs": []
+    }
+  ]
+}

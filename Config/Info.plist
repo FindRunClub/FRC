@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>ClubDirectoryURL</key>
+	<string>$(CLUB_DIRECTORY_URL)</string>
 	<key>StravaClientID</key>
 	<string>$(STRAVA_CLIENT_ID)</string>
 	<key>StravaClientSecret</key>

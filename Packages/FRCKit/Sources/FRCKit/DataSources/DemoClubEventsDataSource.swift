@@ -7,7 +7,8 @@ import Foundation
 ///
 /// Used before Strava is connected, and for QA: it covers runs with two route
 /// options (Five Points, Centennial, Sunday Long Run), a run you've joined
-/// (12South), a trail run, and a bike ride hidden by "Runs only".
+/// (12South), a trail run, a bike ride hidden by "Runs only", and a mix of
+/// clubs you belong to (4) and other clubs in the area (9).
 public struct DemoClubEventsDataSource: ClubEventsDataSource {
     public static let timeZoneIdentifier = "America/Chicago"
 
@@ -185,13 +186,13 @@ struct DemoRunDefinition: Sendable {
 }
 
 enum DemoCatalog {
-    static func club(_ id: Int, _ name: String, members: Int, sport: String = "running") -> StravaClub {
-        StravaClub(id: id, name: name, sportType: sport, city: "Nashville", state: "TN", memberCount: members)
+    static func club(_ id: Int, _ name: String, members: Int, sport: String = "running", joined: Bool = false) -> StravaClub {
+        StravaClub(id: id, name: name, sportType: sport, city: "Nashville", state: "TN", memberCount: members, isMember: joined)
     }
 
     static let runs: [DemoRunDefinition] = [
         DemoRunDefinition(
-            id: "fp", club: club(9_100_001, "Five Points Run Club", members: 1_180),
+            id: "fp", club: club(9_100_001, "Five Points Run Club", members: 1_180, joined: true),
             title: "Tuesday Night Run",
             description: "Two loops through East Nashville, then tacos. Pick 5 miles or 3; everyone regroups at the corner.",
             host: person(0), weekday: 3, hour: 18, minute: 0,
@@ -235,7 +236,7 @@ enum DemoCatalog {
             turnout: [22, 20, 24, 23, 25, 22, 24, 26]
         ),
         DemoRunDefinition(
-            id: "gm", club: club(9_100_005, "Germantown Milers", members: 610),
+            id: "gm", club: club(9_100_005, "Germantown Milers", members: 610, joined: true),
             title: "Wednesday Milers",
             description: "Mile repeats on the Bicentennial Mall loop, then an easy jog back.",
             host: person(12), weekday: 4, hour: 18, minute: 0,
@@ -257,7 +258,7 @@ enum DemoCatalog {
             turnout: [14, 16, 18, 17, 19, 21, 20, 22]
         ),
         DemoRunDefinition(
-            id: "ts", club: club(9_100_007, "12South Social Run", members: 2_050),
+            id: "ts", club: club(9_100_007, "12South Social Run", members: 2_050, joined: true),
             title: "Thursday Social 5K",
             description: "The biggest social run in town. 5K at any pace, then hang out on 12th Ave.",
             host: person(18), weekday: 5, hour: 18, minute: 15,
@@ -290,7 +291,7 @@ enum DemoCatalog {
             turnout: [18, 20, 19, 22, 24, 23, 26, 27]
         ),
         DemoRunDefinition(
-            id: "cs", club: club(9_100_010, "Centennial Sunrise", members: 740),
+            id: "cs", club: club(9_100_010, "Centennial Sunrise", members: 740, joined: true),
             title: "Saturday Sunrise Run",
             description: "Loops past the Parthenon. 10K or 5K; coffee after.",
             host: person(27), weekday: 7, hour: 7, minute: 0,

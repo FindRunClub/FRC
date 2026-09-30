@@ -145,7 +145,7 @@ struct ClubDetailView: View {
                     .padding(.vertical, 5)
                     .background(Theme.accent, in: RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous).strokeBorder(Theme.ink, lineWidth: 1.5))
-                Text("\(run.timeParts.time) \(run.timeParts.period)")
+                Text(timeLabel)
                     .font(FRCFont.mono(13))
                     .foregroundStyle(Theme.ink)
                 if let note = run.primary.timeZoneNote() {
@@ -172,7 +172,32 @@ struct ClubDetailView: View {
                     .font(FRCFont.body(13, .semibold))
                     .foregroundStyle(Theme.ink)
             }
+            HStack(spacing: 8) {
+                Label(
+                    run.club.isMember ? "You're a member of this club" : "You haven't joined this club",
+                    systemImage: run.club.isMember ? "person.2.fill" : "person.2"
+                )
+                .font(FRCFont.body(13, .medium))
+                .foregroundStyle(Theme.ink)
+                Spacer(minLength: 8)
+                if !run.club.isMember {
+                    Button("Join on Strava") { openURL(run.club.stravaURL) }
+                        .font(FRCFont.body(13, .semibold))
+                        .underline()
+                        .foregroundStyle(Theme.ink)
+                        .frame(minHeight: Theme.touchTarget)
+                }
+            }
         }
+    }
+
+    /// "6:00 PM · Tue, Oct 6": the next date for weekly runs (never a past
+    /// one); one-off runs already show their date in the tag.
+    private var timeLabel: String {
+        let time = "\(run.timeParts.time) \(run.timeParts.period)"
+        guard event.frequency == "weekly" else { return time }
+        let isToday = run.day == LocalDay(Date(), timeZone: run.timeZone)
+        return "\(time) · \(isToday ? "Today" : run.day.shortName)"
     }
 
     /// "Weekly · Tuesdays" when Strava says it repeats, otherwise the date.

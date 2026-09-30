@@ -355,7 +355,7 @@ private struct RunsSheet: View {
                             Button {
                                 onOpen(run)
                             } label: {
-                                RunCard(run: run, isSelected: run.id == selectedRunID, showsDay: store.filter.days.count != 1)
+                                RunCard(run: run, isSelected: run.id == selectedRunID, showsDay: store.showsDatesOnCards)
                             }
                             .buttonStyle(.plain)
                             .id(run.id)
@@ -364,6 +364,7 @@ private struct RunsSheet: View {
                     .padding(.bottom, 12)
                 }
                 .scrollIndicators(.hidden)
+                .refreshable { await store.load() }
                 .onChange(of: selectedRunID) { _, id in
                     guard let id else { return }
                     withAnimation(.snappy) { proxy.scrollTo(id, anchor: .top) }
@@ -384,7 +385,7 @@ struct RunCard: View {
         HStack(spacing: 12) {
             VStack(spacing: 0) {
                 if showsDay {
-                    Text(run.weekday.shortName)
+                    Text("\(run.weekday.shortName) \(run.day.day)")
                         .font(FRCFont.body(10, .semibold))
                         .foregroundStyle(Theme.muted)
                         .textCase(.uppercase)
@@ -449,6 +450,6 @@ struct RunCard: View {
 extension RunFilter {
     /// True when anything beyond the day chips narrows the results.
     var isNarrowed: Bool {
-        timeSlot != .any || hasStartWindow || distance != .any || !hiddenClubIDs.isEmpty
+        timeSlot != .any || hasStartWindow || distance != .any || myClubsOnly || !hiddenClubIDs.isEmpty
     }
 }

@@ -9,6 +9,8 @@ struct AppConfig {
     static let stravaRedirectURI = "findrunclub://localhost"
 
     let stravaCredentials: StravaAppCredentials?
+    /// Hosted copy of the club directory, refreshed on launch.
+    let clubDirectoryURL: URL?
 
     static let current = AppConfig(infoDictionary: Bundle.main.infoDictionary ?? [:])
 
@@ -25,6 +27,7 @@ struct AppConfig {
         } else {
             stravaCredentials = nil
         }
+        clubDirectoryURL = Self.value("ClubDirectoryURL", in: infoDictionary).flatMap(URL.init(string:))
     }
 
     /// Returns nil for blanks and unexpanded build settings like "$(STRAVA_CLIENT_ID)".

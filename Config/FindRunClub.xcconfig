@@ -12,4 +12,9 @@ DEVELOPMENT_TEAM =
 STRAVA_CLIENT_ID =
 STRAVA_CLIENT_SECRET =
 
+// Where the app refreshes its list of clubs per city (the "club directory").
+// It falls back to the copy bundled in FindRunClub/Resources/ClubDirectory.json.
+// ("https:/$()/" is how xcconfig files spell "https://".)
+CLUB_DIRECTORY_URL = https:/$()/raw.githubusercontent.com/FindRunClub/FRC/main/FindRunClub/Resources/ClubDirectory.json
+
 #include? "Secrets.xcconfig"

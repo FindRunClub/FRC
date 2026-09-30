@@ -67,7 +67,7 @@ final class EventsStore {
             turnout = snapshot.turnout
             clubs = snapshot.clubs
             failures = snapshot.failures
-            schedule = WeekSchedule(events: events, now: Date(), timeZone: .current)
+            schedule = Self.makeSchedule(events: events, now: Date())
             phase = .loaded
         } catch {
             guard generation == loadGeneration else { return }
@@ -84,7 +84,13 @@ final class EventsStore {
     /// Keeps the week anchored on today after midnight or a long background stay.
     func rollOverToTodayIfNeeded(now: Date = Date()) {
         guard schedule.days.first != LocalDay(now, timeZone: .current) else { return }
-        schedule = WeekSchedule(events: events, now: now, timeZone: .current)
+        schedule = Self.makeSchedule(events: events, now: now)
+    }
+
+    /// Eight days (today through the same weekday next week), so every day
+    /// chip resolves to its next upcoming date and never a past one.
+    private static func makeSchedule(events: [ClubEvent], now: Date) -> WeekSchedule {
+        WeekSchedule(events: events, now: now, timeZone: .current, dayCount: 8)
     }
 
     // MARK: Reading
@@ -107,15 +113,29 @@ final class EventsStore {
     func runs(matching filter: RunFilter, search: String = "") -> [ClubRun] {
         let weekdays = filter.days.isEmpty ? Weekday.allCases : filter.days.sorted()
         return weekdays
-            .compactMap { schedule.day(for: $0) }
-            .flatMap { ClubRun.group(schedule.occurrences(on: $0), turnout: turnout) }
+            .flatMap { ClubRun.group(schedule.upcomingOccurrences(on: $0), turnout: turnout) }
             .filter { filter.includes($0, search: search) }
             .sorted { $0.start < $1.start }
     }
 
-    /// "Tuesday · Evening"
+    /// "Tue, Oct 6 · Evening", or "Today · Evening". Falls back to the day
+    /// names when the runs span more than one date.
     var whenLabel: String {
-        "\(filter.daysLabel) · \(filter.timeSlot.longTitle)"
+        let dates = Set(visibleRuns.map(\.day))
+        let today = LocalDay(Date(), timeZone: .current)
+        let when: String
+        if filter.days.count == 1, let weekday = filter.days.first, dates.count <= 1 {
+            let day = dates.first ?? schedule.upcomingDay(for: weekday, after: today)
+            when = day.map { $0 == today ? "Today" : $0.shortName } ?? weekday.name
+        } else {
+            when = filter.daysLabel
+        }
+        return "\(when) · \(filter.timeSlot.longTitle)"
+    }
+
+    /// Whether cards need to show their date (runs on more than one date).
+    var showsDatesOnCards: Bool {
+        Set(visibleRuns.map(\.day)).count > 1
     }
 
     // MARK: Filtering
@@ -181,5 +201,24 @@ final class SavedClubs {
             ids.insert(clubID)
         }
         UserDefaults.standard.set(Array(ids), forKey: Self.key)
+    }
+}
+
+private extension WeekSchedule {
+    /// The next date on `weekday` from `today` (today itself if it matches).
+    func upcomingDay(for weekday: Weekday, after today: LocalDay) -> LocalDay? {
+        days.first { $0.weekday == weekday.rawValue && $0 >= today }
+    }
+}
+
+extension LocalDay {
+    /// "Tue, Oct 6"
+    var shortName: String {
+        "\(Weekday(self).shortName), \(monthAbbreviation) \(day)"
+    }
+
+    private var monthAbbreviation: String {
+        let names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        return names[max(0, min(11, month - 1))]
     }
 }

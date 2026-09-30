@@ -148,6 +148,15 @@ struct FiltersView: View {
                     }
                     .padding(14)
 
+                    Divider().overlay(Theme.line)
+                    Toggle(isOn: $draft.myClubsOnly) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("My clubs only").font(FRCFont.body(15, .semibold))
+                            Text("Only clubs you've joined on Strava").font(FRCFont.body(12)).foregroundStyle(Theme.muted)
+                        }
+                    }
+                    .padding(14)
+
                     ForEach(store.clubs) { club in
                         Divider().overlay(Theme.line)
                         Toggle(isOn: Binding(
@@ -156,7 +165,14 @@ struct FiltersView: View {
                                 if isVisible { draft.hiddenClubIDs.remove(club.id) } else { draft.hiddenClubIDs.insert(club.id) }
                             }
                         )) {
-                            Text(club.name).font(FRCFont.body(15))
+                            HStack(spacing: 6) {
+                                Text(club.name).font(FRCFont.body(15))
+                                if club.isMember {
+                                    Text("Joined")
+                                        .font(FRCFont.body(11, .semibold))
+                                        .foregroundStyle(Theme.muted)
+                                }
+                            }
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
